@@ -37,10 +37,13 @@ this one i ran up to 200, its right on the edge of channel overutilisation with 
 for i in {1..200} ;do     xterm -T "Node 440$i" -e /home/user/Meshtasticator/Meshtasticator-device/.pio/build/native/program --port 440$i -e &     sleep 1; done
 ```
 
-<img width="382" height="912" alt="Screenshot 2025-08-24 at 6 40 48 PM" src="https://github.com/user-attachments/assets/707ee810-f19a-4c5a-9c4e-964f2eeb9abd" />
+# meshterminal.py --port 4403
+- connects to 127.0.0.1 at port number, lists node info, and 
+- viewing one of the mesh sim hosts, 200 nodes active
 
-<br>
-<br>
+<img width="382" height="912" alt="Screenshot 2025-08-24 at 6 40 48 PM" src="https://github.com/user-attachments/assets/707ee810-f19a-4c5a-9c4e-964f2eeb9abd">
+
+ 
 ```
 (venv) user@cfaa3940fc8d:/meshpy$ meshtastic --host 127.0.0.1:4403 --set mqtt.encryption_enabled false
 Connected to radio
