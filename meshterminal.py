@@ -1,15 +1,18 @@
 import sys
 import os
 
-local_repo = r"/bigpool/data/code_projects/meshtastic_github/xp5fork_meshastic-python-library/meshtastic/tcp_interface.py"
+local_repo = r"/bigpool/data/code_projects/meshtastic_github/xp5fork_meshastic-python-library"
 if os.path.isdir(local_repo):
     sys.path.insert(0, local_repo)
 
-import json
 import threading
 import time
 from pubsub import pub
 from meshtastic.tcp_interface import TCPInterface
+
+
+import meshtastic.tcp_interface
+print("using the following meshtcp library path: ", meshtastic.tcp_interface.__file__)
 
 
 host='127.0.0.1'
