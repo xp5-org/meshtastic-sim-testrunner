@@ -1,23 +1,33 @@
 import sys
 import os
+from datetime import datetime
+import threading
+import time
+from pubsub import pub
 
+
+# using local git branch instead of importing meshapi from pip
 local_repo = r"/bigpool/data/code_projects/meshtastic_github/xp5fork_meshastic-python-library"
 if os.path.isdir(local_repo):
     sys.path.insert(0, local_repo)
 
-import threading
-import time
-from pubsub import pub
+import meshtastic.tcp_interface
 from meshtastic.tcp_interface import TCPInterface
 
-
-import meshtastic.tcp_interface
 print("using the following meshtcp library path: ", meshtastic.tcp_interface.__file__)
 
+# capture mesh-api logging and save to debuglog.txt
+import logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    filename="debuglog.txt",
+    filemode="a"
+)
+logging.info("\n\n========== CLIENT STARTING ==========\n\n")
 
 host='127.0.0.1'
-
-
 
 
 class MeshSession:
@@ -31,6 +41,8 @@ class MeshSession:
         self.online = False
         self._stop_event = threading.Event()
 
+        # add pub subscrive for disconnect events
+        pub.subscribe(self.on_disconnect, 'meshtastic.connection.lost')
         # start a thread for holding the connection
         threading.Thread(target=self._background_loop, daemon=True).start()
 
@@ -55,11 +67,22 @@ class MeshSession:
             self.online = False
             print(f"[mesh] Failed to connect via TCP: {e}")
 
+
+    def on_disconnect(self, interface):
+        print(f"{datetime.now():%Y-%m-%d %H:%M:%S} [mesh] Connection lost, attempting reconnect...")
+        try:
+            interface.close()
+        except Exception:
+            pass
+        self.interface = None
+        self.online = False
+
     def _background_loop(self):
         while not self._stop_event.is_set():
             if not self.online:
+                time.sleep(5) # wait 5 seconds before attempting connect
                 self.connect()
-            time.sleep(5)
+            
 
     def fetch_nodes(self):
         from pprint import pprint
@@ -138,12 +161,15 @@ class MeshSession:
 
     def listen_messages(self):
         print("Listening for messages...")
+        stop_event = threading.Event()
         try:
-            while True:
-                time.sleep(0.1)
+            while not stop_event.is_set():
+                stop_event.wait(1) # hold thread open waiting for a stop event, check once per second
         except KeyboardInterrupt:
+            # someone pressed control + c to quit
             print("Listener stopped.")
-            self.interface.close()
+            if self.interface:
+                self.interface.close()
 
 
 
