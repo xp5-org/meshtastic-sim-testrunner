@@ -1,3 +1,10 @@
+import sys
+import os
+
+local_repo = r"/bigpool/data/code_projects/meshtastic_github/xp5fork_meshastic-python-library/meshtastic/tcp_interface.py"
+if os.path.isdir(local_repo):
+    sys.path.insert(0, local_repo)
+
 import json
 import threading
 import time
@@ -13,22 +20,43 @@ host='127.0.0.1'
 class MeshSession:
     def __init__(self, host, portnum):
         self.node_ip = host
-        self.node_portnum = int(portnum)
+        self.node_portnum = portnum
         self.node_list = []
         self.node_list_lock = threading.Lock()
         self.my_node_id = None
+        self.interface = None
+        self.online = False
+        self._stop_event = threading.Event()
 
+        # start a thread for holding the connection
+        threading.Thread(target=self._background_loop, daemon=True).start()
+
+
+    def connect(self):
+        if self.interface:
+            try:
+                self.interface.close()
+            except Exception:
+                pass
+            self.interface = None
+            self.online = False
+
+        print(f"[mesh] Connecting to {self.node_ip} via TCP...")
         try:
             self.interface = TCPInterface(hostname=self.node_ip, portNumber=self.node_portnum)
-        except OSError as e:
-            print(f"ERROR: Could not connect to {self.node_ip}:{self.node_portnum}: {e}")
-            exit(1)
+            pub.subscribe(self.on_receive, "meshtastic.receive")
+            self.online = True
+            print("[mesh] TCP connection established")
+        except Exception as e:
+            self.interface = None
+            self.online = False
+            print(f"[mesh] Failed to connect via TCP: {e}")
 
-        pub.subscribe(self.on_receive, "meshtastic.receive")
-
-
-
-
+    def _background_loop(self):
+        while not self._stop_event.is_set():
+            if not self.online:
+                self.connect()
+            time.sleep(5)
 
     def fetch_nodes(self):
         from pprint import pprint
@@ -47,8 +75,7 @@ class MeshSession:
             snr = metrics.get("snr", None)
 
             # if hops count val is ? it means malformed or invalid?
-            # lets set it to 99 so we can sort them by themselves as errors
-            # without changing how an integer is handled here 
+            # set it to 99 so we can sort them by themselves as errors
             if hops == "?":
                 hops_val = 99
             else:
@@ -65,8 +92,8 @@ class MeshSession:
             }
             devices.append((node_id, info))
 
-        # also set to 9999 if not present or none?
-        devices.sort(key=lambda item: item[1].get("hopsAway", 9999))
+        # also set to 99 if not present or none?
+        devices.sort(key=lambda item: item[1].get("hopsAway", 99))
 
         with self.node_list_lock:
             self.node_list[:] = devices
@@ -128,7 +155,6 @@ def main():
     print(f"connecting to {host} {args.port}")
 
     session = MeshSession(host, args.port)
-    session.fetch_nodes()
 
     listener_thread = threading.Thread(target=session.listen_messages, daemon=True)
     listener_thread.start()
